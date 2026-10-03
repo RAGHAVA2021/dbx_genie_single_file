@@ -8,7 +8,7 @@ This directory contains context provided to Genie, not evaluation ground truth.
 - `sql_functions.yml` records optional approved UC functions. It stays empty until the current live
   serialized schema is confirmed.
 
-Keep benchmark/evaluation questions under `evaluations/` so test material is not accidentally taught to the Agent. SQL examples must use configured sources, qualify every column reference, remain read-only, be tested in the target workspace, and receive business and technical approval before deployment.
+Keep benchmark/evaluation questions under `evaluations/` so test material is not accidentally taught to the Agent. SQL examples must use only the configured `sales_fact` source, qualify every column reference, remain read-only, be tested in the target workspace, and receive business and technical approval before deployment.
 Examples that query Metric Views must use the applicable `MEASURE()` patterns and must not duplicate
 governed measure formulas.
 

@@ -6,7 +6,7 @@ The repository currently operates in **local-only mode** because no Databricks w
 
 ## What a Genie Agent is
 
-A Genie Agent is a curated natural-language interface over selected Unity Catalog data. It uses configured data sources, semantic context, examples, and instructions to generate Databricks SQL and return grounded answers through a SQL warehouse.
+A Genie Agent is a curated natural-language interface over selected Unity Catalog data. This project uses exactly one configured Unity Catalog source, plus semantic context, examples, and instructions, to generate Databricks SQL and return grounded answers through a SQL warehouse.
 
 Some APIs and commands still use the compatibility term **Genie Space**. This project uses **Genie Agent** in user-facing documentation and retains API terminology only where required.
 
@@ -14,7 +14,15 @@ Some APIs and commands still use the compatibility term **Genie Space**. This pr
 
 The Agent is intended to help authorised business users analyse total sales, trends, product and store performance, returns, discounts, transaction counts, and actual-versus-target results when approved target data exists.
 
-The project does not assume that any measure, column, join, fiscal rule, target, or currency conversion exists. These remain configurable and require evidence and business approval.
+The project does not assume that any measure, column, fiscal rule, target, or currency conversion exists. These remain configurable and require evidence and business approval.
+
+## Single-source design
+
+The Agent must contain exactly one logical source named `sales_fact`. That source is either one
+denormalized table/view or one governed Metric View containing every approved measure and dimension
+needed by supported questions. Product, store, date, customer, and target data are columns of that
+single object—not separate Genie sources. Join specifications are prohibited and validation rejects
+zero sources, multiple sources, unresolved source templates, and serialized `join_specs`.
 
 The audience, scope, evaluation intent, confidence, and unresolved decisions are recorded in
 [readiness-and-decisions.md](docs/readiness-and-decisions.md).
@@ -66,9 +74,9 @@ sales_genie/
 
 | Location | Purpose | Included in Agent payload |
 |---|---|---|
-| `config/environments/` | Dev/prod workspace, warehouse, catalog, schema, table, identity, and Agent settings | Resolves deployment metadata and source identifiers |
-| `config/data/tables.yml` | Logical source contract: declares source keys, `source_type` (`table` or `metric_view`), required sources, and each `fqn_template` | Resolves typed, fully qualified source identifiers |
-| `config/data/semantics.yml` | Columns, descriptions, synonyms, classifications, grain, measures, keys, and joins | Yes; column configuration and join specifications |
+| `config/environments/` | Dev/prod workspace, warehouse, catalog, schema, single source, identity, and Agent settings | Resolves deployment metadata and the source identifier |
+| `config/data/tables.yml` | Logical contract for exactly one `sales_fact` source, its `source_type` (`table` or `metric_view`), and `fqn_template` | Resolves one typed, fully qualified source identifier |
+| `config/data/semantics.yml` | Columns, descriptions, synonyms, classifications, grain, and measures for the single source | Yes; column configuration; join specifications remain empty |
 | `config/instructions/general_instructions.md` | Global ambiguity, safety, availability, and response rules | Yes; one `text_instructions` item |
 | `config/instructions/text_instruction_justification.md` | Governance rationale and risk assessment for free-text instructions | No |
 | `config/examples/sample_questions.yml` | User-visible starting questions | Yes; `config.sample_questions` |
@@ -104,7 +112,7 @@ ruff check .
 ```
 
 Local validation permits intentionally retained placeholders. Deployment validation is stricter and
-rejects unresolved placeholders, unapproved examples, missing warehouse configuration, invalid joins,
+rejects unresolved placeholders, unapproved examples, missing warehouse configuration,
 unsafe SQL, environment mixing, and shared dev/prod Agent IDs. `compare-dev-prod` additionally enforces
 the catalog-only promotion contract.
 
@@ -127,7 +135,7 @@ and object names remain aligned.
 
 ## Preparing real configuration
 
-Complete these steps only after a Databricks workspace and approved data sources are available.
+Complete these steps only after a Databricks workspace and the approved single data source are available.
 
 ### 1. Configure environments
 
@@ -135,7 +143,7 @@ Update the development and production files independently with:
 
 - Workspace host and explicit CLI profile
 - SQL warehouse ID
-- Catalog, schema, and physical table, view, or Metric View names
+- Catalog, schema, and physical name of the one table, view, or Metric View
 - Agent display name, description, and parent workspace path
 - Deployment identity, and one `authorised_principals` entry per principal granted access
 
@@ -143,20 +151,20 @@ Each `authorised_principals` entry names a single `group_name`, `user_name`, or
 `service_principal_name` plus its level, and must match the target's `agent_permissions` in
 [databricks.yml](databricks.yml). Any number of principals is supported.
 
-Promotion changes only the catalog component of each source identifier. Schema names, object names,
-and source types must match between development and production. Agent IDs, state files, generated
+Promotion changes only the catalog component of the source identifier. Its schema name, object name,
+and source type must match between development and production. Agent IDs, state files, generated
 artifacts, and bundle target state remain environment-specific; hosts, warehouses, profiles, and
 identities may be shared when that is the approved workspace topology.
 
 ### 2. Confirm data and semantics
 
-Use Unity Catalog metadata and bounded read-only profiling to confirm table and column existence, types, source grain, keys, join cardinality, date rules, measure formulas, aggregations, currency handling, and sensitive-data classifications.
+Use Unity Catalog metadata and bounded read-only profiling to confirm the single table and column existence, types, source grain, date rules, measure formulas, aggregations, currency handling, and sensitive-data classifications.
 
 Update [semantics.yml](config/data/semantics.yml) only with supported definitions. Reusable business KPIs should preferably be governed upstream, such as through a suitable Unity Catalog Metric View, rather than repeatedly derived in Genie instructions.
 
 Before deployment, complete `metric_view_decision` in `semantics.yml`. For this KPI-heavy sales
-domain, a governed Metric View is the recommended default. Retaining raw fact/dimension sources
-requires an approved rationale, verified grain and joins, and a documented need for raw-detail access.
+domain, a governed Metric View is the recommended default. Retaining the raw denormalized table
+requires an approved rationale, verified grain, and a documented need for raw-detail access.
 
 ### 3. Approve Genie examples
 
@@ -165,15 +173,15 @@ Review [sample_questions.yml](config/examples/sample_questions.yml), then set it
 For every entry in [sql_examples.yml](config/examples/sql_examples.yml):
 
 1. Replace all `<...>` placeholders.
-2. Confirm every source is configured for the Agent.
-3. Keep every column reference qualified with its source alias.
+2. Confirm the query uses only the configured `sales_fact` source.
+3. Keep every column reference qualified with the configured source alias.
 4. Execute or `EXPLAIN` the query against the intended SQL warehouse.
 5. Confirm it is read-only and produces the intended result shape.
 6. Obtain business and technical approval.
 7. Change `approval_status` to `approved`.
 
 Example SQL teaches reusable query shapes. It must not contain fabricated numeric answers or unverified business formulas.
-When a configured source is a Metric View, its examples must follow the applicable `MEASURE()` query
+When the configured source is a Metric View, its examples must follow the applicable `MEASURE()` query
 rules and must not re-derive governed measures.
 
 Add approved reusable business terms to
@@ -184,7 +192,7 @@ confirms the current API field shape; approved functions also require UC `EXECUT
 
 ### 4. Review general instructions
 
-[general_instructions.md](config/instructions/general_instructions.md) contains global behaviour only. Table selection, column meaning, joins, metric definitions, and SQL patterns belong in structured configuration.
+[general_instructions.md](config/instructions/general_instructions.md) contains global behaviour only. Column meaning, metric definitions, and SQL patterns belong in structured configuration.
 
 The rationale and regression risks are documented in [text_instruction_justification.md](config/instructions/text_instruction_justification.md).
 
@@ -268,8 +276,8 @@ exports/*.json
 backups/*.json
 ```
 
-Exports store parsed, reviewable `serialized_space` JSON. Import verifies that source types, schemas,
-and object names match the target and remaps complete identifiers from the source catalog to the
+Exports store parsed, reviewable `serialized_space` JSON. Import verifies that the source type, schema,
+and object name match the target and remaps the complete identifier from the source catalog to the
 target catalog. It creates a new Agent rather than silently overwriting an existing one:
 
 ```bash
@@ -285,7 +293,7 @@ For rollback, review the pre-update backup, validate its environment mappings, a
 
 [sales_questions.yml](evaluations/sales_questions.yml) contains 21 cases covering aggregations, time series, product and store analysis, returns and discounts, comparisons, ambiguity, unsupported requests, and security-sensitive requests.
 
-Each case records required sources, expected interpretation, SQL/result characteristics, clarification/refusal behaviour, and approval status. It deliberately contains no fabricated expected numeric answers. Business owners must approve the evaluation expectations and review actual development results before promotion.
+Each case records whether the single source is required, expected interpretation, SQL/result characteristics, clarification/refusal behaviour, and approval status. It deliberately contains no fabricated expected numeric answers. Business owners must approve the evaluation expectations and review actual development results before promotion.
 
 The file also records `evaluation_mode`, benchmark promotion intent, and the latest workspace-run
 evidence. Deterministic questions can move to Chat mode only after their `answer_sql` has been tested.
@@ -317,7 +325,7 @@ The applicable runtime identity or querying user needs:
 - `CAN USE` on the selected SQL warehouse
 - `USE CATALOG` on the approved catalog
 - `USE SCHEMA` on the approved schema
-- `SELECT` on only the approved tables, curated views, or Metric Views
+- `SELECT` on only the configured table/view or Metric View
 - Permission to use the Genie Agent
 
 Do not grant entire-catalog access when table- or view-level access is sufficient. Protect sensitive data with Unity Catalog views, row filters, column masks, and grants. Prompt instructions are not a security boundary.
@@ -330,7 +338,7 @@ The following cannot be completed locally:
 
 - Workspace authentication and profile verification
 - Warehouse, catalog, schema, table/view/Metric View, and column checks
-- Data types, freshness, grain, key quality, and join fan-out
+- Data types, freshness, grain, key quality, and duplicate-row behaviour
 - Unity Catalog privileges and sensitive-data controls
 - Agent creation, update, export, import, and permissions
 - Conversation execution, generated SQL, results, and timeouts
@@ -359,7 +367,7 @@ becomes stale.
 | Reference | What it was used to verify |
 |---|---|
 | [Databricks documentation index](https://docs.databricks.com/llms.txt) | Official documentation discovery and current product terminology. |
-| [Curate an effective Genie Agent](https://docs.databricks.com/aws/en/genie-agents/best-practices) | Focused scope, aim for five or fewer sources, current 50-source limit, metadata, SQL expressions, examples, and minimal text instructions. |
+| [Curate an effective Genie Agent](https://docs.databricks.com/aws/en/genie-agents/best-practices) | General platform guidance permits multiple focused sources; this repository deliberately enforces exactly one source, plus metadata, SQL expressions, examples, and minimal text instructions. |
 | [Tune Genie Agent quality](https://docs.databricks.com/aws/en/genie-agents/tune-quality) | SQL expressions, example queries, trusted SQL functions, prompt matching, entity-matching restrictions, and instruction/snippet limits. |
 | [Use the Genie Agents API](https://docs.databricks.com/aws/en/genie-agents/conversation-api) | Conversation lifecycle, polling, messages, attachments, query results, and version 2 serialized definitions. |
 | [Test and monitor a Genie Agent](https://docs.databricks.com/aws/en/genie-agents/monitor) | Chat and Agent benchmark modes, evaluation notes, independent conversations, and alternate question phrasings. |
@@ -389,9 +397,9 @@ becomes stale.
 
 ## Assumptions requiring confirmation
 
-- The approved raw-table source set or replacement governed Metric View exists in both environments.
-- Customer and target sources are optional.
-- Grain, keys, joins, calendars, measures, return/discount rules, cancellation rules, currency handling, and classifications are not yet approved.
-- A focused Agent with four to six sources is appropriate. Current official guidance recommends starting with five or fewer sources and documents a 50-source limit; recheck the current limit before deployment.
+- The approved single denormalized table or replacement governed Metric View exists in both environments.
+- Customer and target attributes are optional columns in that source.
+- Grain, calendars, measures, return/discount rules, cancellation rules, currency handling, and classifications are not yet approved.
+- The Agent must remain scoped to exactly one configured source.
 - Production approval will be enforced through both the protected GitHub environment and the CLI guard.
 - SDK and Genie API shapes will be revalidated against current official documentation before the first deployment.

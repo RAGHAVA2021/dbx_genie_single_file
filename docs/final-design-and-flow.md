@@ -55,12 +55,12 @@ local validation -> serialized_space v2 -> native DAB -> workspace Genie Agent
 | Layer | Files | Responsibility |
 |---|---|---|
 | Environment | `config/environments/dev.yml`, `prod.yml` | Resolve workspace, warehouse, catalog, schema, source, identity, principal, and Agent settings independently for each target. |
-| Data contract | `config/data/tables.yml` | Own the logical source list, source type (`table` or `metric_view`), which sources are required, and the `fqn_template` used to build each fully qualified identifier from environment values. |
-| Semantic context | `config/data/semantics.yml` | Define approved columns, descriptions, synonyms, grain, keys, joins, measures, classifications, and prompt-matching controls. |
+| Data contract | `config/data/tables.yml` | Own exactly one logical `sales_fact` source, its type (`table` or `metric_view`), and the `fqn_template` used to build its fully qualified identifier from environment values. |
+| Semantic context | `config/data/semantics.yml` | Define approved columns, descriptions, synonyms, grain, measures, classifications, and prompt-matching controls for the single source. |
 | Structured teaching | `config/examples/` | Supply sample questions, SQL expressions, verified example SQL, and optional approved UC functions. |
 | Global behaviour | `config/instructions/` | Hold only concise cross-query behaviour that cannot be represented structurally, plus its governance justification. |
 | Independent evaluation | `evaluations/sales_questions.yml` | Test business interpretation, SQL/result characteristics, clarification, refusal, and security behaviour without teaching-set leakage. |
-| Build and checks | `src/sales_genie/` and `tests/` | Validate configuration, resolve target-specific sources, build deterministic payloads, and enforce deployment gates. |
+| Build and checks | `src/sales_genie/` and `tests/` | Validate configuration, resolve the target-specific source, build deterministic payloads, and enforce deployment gates. |
 | Deployment | `databricks.yml` and `resources/` | Deploy the generated Agent through native `resources.genie_spaces` with `bundle.engine: direct`. |
 | Generated output | `generated/<target>/sales_genie.geniespace.json` | Environment-specific serialized-space version 2 payload; generated and ignored by Git. |
 | Operations | `docs/`, CLI commands, and CI workflow | Define readiness, permissions, smoke testing, promotion, backup, and rollback. |
@@ -74,14 +74,14 @@ than the smallest payload the Databricks API might accept.
 |---|---|---|
 | `databricks.yml` and `resources/sales_genie.genie_space.yml` | Mandatory | Primary native DAB deployment definition. |
 | Both environment files | Mandatory | Dev and prod mappings must remain separate; real values are required only for the target being deployed. |
-| `tables.yml` and `semantics.yml` | Mandatory | Required for source resolution, typed serialization, descriptions, grain, joins, classifications, approvals, and validation. `tables.yml` is authoritative: it declares each source key, `source_type` (`table` or `metric_view`), and template; an environment file may only map declared sources. This repository attaches existing Metric Views but does not create them. |
+| `tables.yml` and `semantics.yml` | Mandatory | Required for single-source resolution, typed serialization, descriptions, grain, classifications, approvals, and validation. `tables.yml` is authoritative and declares exactly one source, its `source_type` (`table` or `metric_view`), and template. This repository attaches existing Metric Views but does not create them. |
 | `general_instructions.md` | Mandatory | Must stay concise and contain only truly global behaviour. |
 | `text_instruction_justification.md` | Mandatory governance record | Explains why each free-text rule cannot be structured and how it will be reviewed. |
 | `sample_questions.yml` | Mandatory | Provides approved user-visible starting questions. |
 | `sql_examples.yml` | Mandatory for this project | Deployment requires at least one example; beyond that, examples must cover distinct, useful query shapes and be executed or explained, reviewed, and approved. There is no arbitrary quota gate. |
 | `sql_expressions.yml` | Optional until approved expressions exist | Preferred location for reusable measures, filters, and dimensions; empty content is valid. |
 | `sql_functions.yml` | Optional | Keep empty until a function is genuinely required, approved, granted `EXECUTE`, and the current serialized schema is confirmed. |
-| Customer and sales-target sources | Optional | Include only when approved questions require them and the data is available. |
+| Customer and sales-target attributes | Optional | Use only when approved questions require them and the columns exist in the single source. |
 | Evaluation cases | Mandatory for promotion | Local definitions may remain pending, but production requires approved expectations and passed workspace evidence. |
 | Generated files, state, exports, backups | Runtime artifacts | Created per environment and excluded from source control; they are not hand-authored inputs. |
 
@@ -89,14 +89,14 @@ than the smallest payload the Databricks API might accept.
 
 1. Confirm the Agent's audience, narrow purpose, supported questions, and evaluation mode in
    `docs/readiness-and-decisions.md`.
-2. Map development and production independently. This project promotes sources by changing only the
+2. Map development and production independently. This project promotes the source by changing only its
    catalog component: schema, object name, and source type must remain identical. Agent IDs, state
    files, generated artifacts, and bundle target state remain environment-specific; other workspace
    infrastructure may be shared when that is the approved topology.
 3. Complete the Metric View decision. KPI-heavy sales analysis should prefer a governed Metric View;
-   using raw tables requires an approved reason, verified grain, and verified joins.
+   using the raw denormalized table requires an approved reason and verified grain.
 4. Update the data contract and semantics from Unity Catalog evidence. Do not invent fields,
-   relationships, formulas, fiscal rules, or currency logic.
+   formulas, fiscal rules, or currency logic.
 5. Put reusable metric/filter/dimension logic in SQL expressions, representative query shapes in SQL
    examples, and only irreducible global behaviour in general instructions. When the source is a
    Metric View, examples must follow `MEASURE()` query rules and must not re-derive governed measures.
@@ -122,8 +122,8 @@ After a workspace becomes available:
 
 1. Authenticate with Databricks unified authentication and an explicit development profile. Do not
    implement token acquisition in project code.
-2. Verify the SQL warehouse, Unity Catalog objects, required columns, types, privileges, row filters,
-   masks, source freshness, grain, keys, and join fan-out.
+2. Verify the SQL warehouse, single Unity Catalog object, required columns, types, privileges, row filters,
+   masks, source freshness, grain, keys, and duplicate-row behavior.
 3. Execute or `EXPLAIN` every teaching query in the intended warehouse and record business and
    technical approval.
 4. Confirm prompt matching is enabled only for eligible stable string dimensions. It must not bypass
@@ -151,11 +151,11 @@ enhancements afterward. There is no weekly schedule.
 Promotion requires all of the following:
 
 - No unresolved placeholders in the production target.
-- Approved sources, semantics, joins, examples, instructions, and evaluation expectations.
+- Approved source, semantics, examples, instructions, and evaluation expectations.
 - Passing local lint, tests, validation, environment-isolation checks, and secret scan.
 - Passing development smoke tests and business evaluation with recorded evidence.
-- Production source identifiers use the production catalog while preserving the approved schema,
-  object names, and table-versus-Metric-View types from development.
+- The production source identifier uses the production catalog while preserving the approved schema,
+  object name, and table-versus-Metric-View type from development.
 - Production has its own Agent identity, state, generated artifact, approval, and permissions;
   workspace infrastructure follows the approved environment topology.
 - Protected production-environment approval.
@@ -206,9 +206,9 @@ post-deployment test fails:
    validation.
 6. Repeat smoke tests and the affected evaluation cases before reopening access.
 
-Clone/import validates that source types, schemas, and object names match the target configuration,
-then remaps complete source identifiers and embedded SQL from the exported catalog to the target
-catalog. Any source-shape drift blocks the import.
+Clone/import validates that the source type, schema, and object name match the target configuration,
+then remaps the complete source identifier and embedded SQL from the exported catalog to the target
+catalog. Any source-shape drift blocks the import, as does a payload with zero or multiple sources.
 
 The detailed operational procedure is in
 [`deployment-and-rollback.md`](deployment-and-rollback.md).
@@ -219,12 +219,12 @@ The detailed operational procedure is in
 |---|---|
 | Repository design, local serializer, native DAB definition, tests, and CI template | Implemented |
 | Workspace authentication and API activity | Not performed |
-| Physical catalogs, schemas, tables/views/Metric Views, columns, keys, and joins | Placeholders; must be verified |
+| Physical catalog, schema, table/view/Metric View, columns, and keys | Placeholders; must be verified |
 | Metric View decision and KPI formulas | Pending business/data-owner approval |
 | SQL examples | Five distinct placeholder examples; untested and pending approval |
 | SQL expressions and UC functions | Empty until approved use cases and schema evidence exist |
 | Workspace smoke tests and evaluation evidence | Pending a development workspace |
 | Production deployment | Blocked by the preceding readiness gates |
 
-The authoritative source list and verification date are maintained in the root
+The authoritative single-source definition and verification date are maintained in the root
 [`README.md`](../README.md#verified-databricks-references).

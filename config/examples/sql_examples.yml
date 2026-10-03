@@ -35,14 +35,12 @@ examples:
     usage_guidance: Clarify whether top-selling means amount, quantity, or transactions before use.
     sql: |
       SELECT
-        product_dimension.`<product-business-name-column>` AS product_name,
+        sales_fact.`<product-business-name-column>` AS product_name,
         SUM(sales_fact.`<approved-sales-amount-column>`) AS total_sales
       FROM ${sales_fact} AS sales_fact
-      JOIN ${product_dimension} AS product_dimension
-        ON sales_fact.`<product-key-column>` = product_dimension.`<product-key-column>`
       WHERE sales_fact.`<sale-date-column>` >= date_trunc('MONTH', current_date())
         AND sales_fact.`<sale-date-column>` < add_months(date_trunc('MONTH', current_date()), 1)
-      GROUP BY product_dimension.`<product-business-name-column>`
+      GROUP BY sales_fact.`<product-business-name-column>`
       ORDER BY total_sales DESC
       LIMIT 10
 
@@ -53,27 +51,38 @@ examples:
     sql: |
       WITH period_sales AS (
         SELECT
-          CASE
-            WHEN sales_fact.`<sale-date-column>` >= date_trunc('YEAR', current_date())
-              THEN 'current_year'
-            ELSE 'prior_year'
-          END AS comparison_period,
-          SUM(sales_fact.`<approved-sales-amount-column>`) AS total_sales
+          SUM(
+            CASE
+              WHEN sales_fact.`<sale-date-column>` >= date_trunc('YEAR', current_date())
+                AND sales_fact.`<sale-date-column>` <= current_date()
+                THEN sales_fact.`<approved-sales-amount-column>`
+              ELSE 0
+            END
+          ) AS current_year_sales,
+          SUM(
+            CASE
+              WHEN sales_fact.`<sale-date-column>` >= add_months(date_trunc('YEAR', current_date()), -12)
+                AND sales_fact.`<sale-date-column>` <= add_months(current_date(), -12)
+                THEN sales_fact.`<approved-sales-amount-column>`
+              ELSE 0
+            END
+          ) AS prior_year_sales
         FROM ${sales_fact} AS sales_fact
-        WHERE sales_fact.`<sale-date-column>` >= add_months(date_trunc('YEAR', current_date()), -12)
+        WHERE (
+          sales_fact.`<sale-date-column>` >= date_trunc('YEAR', current_date())
           AND sales_fact.`<sale-date-column>` <= current_date()
-        GROUP BY
-          CASE
-            WHEN sales_fact.`<sale-date-column>` >= date_trunc('YEAR', current_date())
-              THEN 'current_year'
-            ELSE 'prior_year'
-          END
+        ) OR (
+          sales_fact.`<sale-date-column>` >= add_months(date_trunc('YEAR', current_date()), -12)
+          AND sales_fact.`<sale-date-column>` <= add_months(current_date(), -12)
+        )
       )
       SELECT
-        period_sales.comparison_period,
-        period_sales.total_sales
+        period_sales.current_year_sales,
+        period_sales.prior_year_sales,
+        period_sales.current_year_sales - period_sales.prior_year_sales AS absolute_change,
+        100.0 * (period_sales.current_year_sales - period_sales.prior_year_sales)
+          / NULLIF(period_sales.prior_year_sales, 0) AS percentage_change
       FROM period_sales
-      ORDER BY period_sales.comparison_period
 
   - name: sales_by_store_last_complete_month
     question: Show sales by store for the last complete month.
@@ -81,12 +90,10 @@ examples:
     usage_guidance: Use for a bounded dimensional breakdown after the sales measure is approved.
     sql: |
       SELECT
-        store_dimension.`<store-business-name-column>` AS store_name,
+        sales_fact.`<store-business-name-column>` AS store_name,
         SUM(sales_fact.`<approved-sales-amount-column>`) AS total_sales
       FROM ${sales_fact} AS sales_fact
-      JOIN ${store_dimension} AS store_dimension
-        ON sales_fact.`<store-key-column>` = store_dimension.`<store-key-column>`
       WHERE sales_fact.`<sale-date-column>` >= add_months(date_trunc('MONTH', current_date()), -1)
         AND sales_fact.`<sale-date-column>` < date_trunc('MONTH', current_date())
-      GROUP BY store_dimension.`<store-business-name-column>`
+      GROUP BY sales_fact.`<store-business-name-column>`
       ORDER BY total_sales DESC, store_name

@@ -108,6 +108,8 @@ def build_serialized_space(
     contract_path: str | Path = TABLES_PATH,
 ) -> dict[str, Any]:
     semantics = load_yaml(semantics_path)
+    if semantics.get("joins"):
+        raise ValueError("joins must be empty for the single-source design")
     examples = load_yaml(examples_path)
     sample_questions = load_yaml(sample_questions_path)
     source_contract = load_table_contract(contract_path)
@@ -168,32 +170,6 @@ def build_serialized_space(
     if example_sqls:
         payload["instructions"]["example_question_sqls"] = sorted(
             example_sqls, key=lambda value: value["id"]
-        )
-
-    joins = []
-    relation_tags = {
-        "many_to_one": "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--",
-        "one_to_many": "--rt=FROM_RELATIONSHIP_TYPE_ONE_TO_MANY--",
-        "one_to_one": "--rt=FROM_RELATIONSHIP_TYPE_ONE_TO_ONE--",
-        "many_to_many": "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_MANY--",
-    }
-    for join in semantics.get("joins", []):
-        left_key, right_key = join["left_table"], join["right_table"]
-        condition = (
-            f"`{left_key}`.`{join['left_column']}` = "
-            f"`{right_key}`.`{join['right_column']}`"
-        )
-        joins.append(
-            {
-                "id": stable_id("join", join["name"]),
-                "left": {"identifier": fqns[left_key], "alias": left_key},
-                "right": {"identifier": fqns[right_key], "alias": right_key},
-                "sql": [condition, relation_tags[join["relationship"]]],
-            }
-        )
-    if joins:
-        payload["instructions"]["join_specs"] = sorted(
-            joins, key=lambda value: value["id"]
         )
 
     snippets = _sql_snippets(expressions_path, fqns)

@@ -9,7 +9,8 @@ from typing import Any
 import yaml
 
 PLACEHOLDER_RE = re.compile(r"<[^<>]+>")
-MAX_DATA_SOURCES = 50
+UNRESOLVED_TEMPLATE_RE = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*")
+MAX_DATA_SOURCES = 1
 DEV_CONFIG_PATH = Path("config/environments/dev.yml")
 PROD_CONFIG_PATH = Path("config/environments/prod.yml")
 TABLES_PATH = Path("config/data/tables.yml")
@@ -36,6 +37,8 @@ def load_table_contract(path: str | Path = TABLES_PATH) -> dict[str, dict[str, A
     tables = load_yaml(path).get("tables")
     if not isinstance(tables, dict) or not tables:
         raise ValueError(f"{path} must define a non-empty tables mapping")
+    if len(tables) != MAX_DATA_SOURCES:
+        raise ValueError(f"{path} must define exactly one data source")
     return tables
 
 
@@ -85,11 +88,17 @@ class EnvironmentConfig:
         values.update(
             {f"{key}_table": configured.get(key) for key in contract if configured.get(key)}
         )
-        return {
-            key: Template(spec["fqn_template"]).safe_substitute(values)
-            for key, spec in contract.items()
-            if configured.get(key)
-        }
+        resolved: dict[str, str] = {}
+        for key, spec in contract.items():
+            if not configured.get(key):
+                continue
+            identifier = Template(spec["fqn_template"]).safe_substitute(values)
+            if unresolved := UNRESOLVED_TEMPLATE_RE.search(identifier):
+                raise ValueError(
+                    f"source {key} has unresolved template variable: {unresolved.group(0)}"
+                )
+            resolved[key] = identifier
+        return resolved
 
     def data_source_fqns(
         self, contract_path: str | Path = TABLES_PATH

@@ -3,8 +3,8 @@
 ## Audience and purpose
 
 - Intended audience: authorised sales managers and analysts with business-domain fluency; SQL knowledge is not required.
-- Purpose: answer focused descriptive sales questions about approved measures, trends, products, stores, returns, discounts, transaction counts, and targets when an approved target source exists.
-- Out of scope: forecasting, competitor explanations, unrestricted row-level customer data, and any source or KPI that has not been approved.
+- Purpose: answer focused descriptive sales questions about approved measures, trends, products, stores, returns, discounts, transaction counts, and targets when approved target columns exist in the single source.
+- Out of scope: forecasting, competitor explanations, unrestricted row-level customer data, and any column or KPI that has not been approved.
 
 ## Core questions
 
@@ -16,12 +16,12 @@
 
 The broader independent evaluation set is in `evaluations/sales_questions.yml`.
 
-## Candidate logical sources
+## Single logical source options
 
-- Raw-table option: sales fact, product dimension, store dimension, and date dimension; customer and
-  sales-target sources remain optional.
-- Governed option: a focused Metric View that supplies the approved measures and dimensions can
-  replace the raw source set. This repository can attach that existing Metric View but does not
+- Raw-table option: one denormalized sales table containing every approved measure and dimension;
+  customer and sales-target attributes remain optional columns.
+- Governed option: one focused Metric View that supplies the approved measures and dimensions can
+  replace the raw table. This repository can attach that existing Metric View but does not
   create or deploy it.
 - Physical catalog, schema, table/view/Metric View, column, warehouse, and Agent identifiers remain
   unresolved.
@@ -29,7 +29,7 @@ The broader independent evaluation set is in `evaluations/sales_questions.yml`.
 ## Decisions required before deployment
 
 - Approve a governed Metric View, or explicitly approve raw-table access with a raw-detail rationale.
-- Confirm source grain, freshness, keys, join cardinality, and fan-out behavior.
+- Confirm source grain, freshness, keys, and duplicate-row behavior.
 - Approve sales, gross sales, discounts, returns, net sales, quantity, transaction count, and average transaction value definitions.
 - Confirm calendar versus fiscal rules, default filters, cancellation handling, currency conversion, and units.
 - Confirm sensitive-data classifications, row filters, column masks, dynamic views, and entity-matching eligibility.

@@ -43,18 +43,32 @@ def test_deployment_requires_at_least_one_sql_example(tmp_path):
     )
 
 
-def test_duplicate_tables():
-    cfg = changed()
-    cfg.raw["tables"]["product_dimension"] = cfg.raw["tables"]["sales_fact"]
-    assert "duplicate fully qualified source definitions" in validate_environment(cfg)
-
-
 def test_environment_mixing():
     assert any("filename" in error for error in validate_environment(changed(environment="prod")))
 
 
 def test_semantics_are_structurally_valid():
     assert validate_semantics("config/data/semantics.yml") == []
+
+
+def test_single_source_semantics_reject_joins(tmp_path):
+    path = tmp_path / "semantics.yml"
+    path.write_text(
+        """columns: []
+measures: []
+joins:
+  - name: self_join
+    left_table: sales_fact
+    left_column: parent_id
+    right_table: sales_fact
+    right_column: id
+    relationship: many_to_one
+    approval_status: approved
+    evidence: test
+""",
+        encoding="utf-8",
+    )
+    assert "joins must be empty for the single-source design" in validate_semantics(path)
 
 
 def test_unsafe_sql_is_rejected():
@@ -82,6 +96,18 @@ def test_structured_context_and_serialized_space_are_valid():
     assert validate_instructions("config/instructions/general_instructions.md") == []
     payload = build_serialized_space(load_environment("config/environments/dev.yml"))
     assert validate_serialized_space(payload) == []
+
+
+def test_serialized_space_requires_one_source_and_rejects_join_specs():
+    payload = build_serialized_space(load_environment("config/environments/dev.yml"))
+    payload["data_sources"] = {}
+    assert any("exactly 1 data source" in error for error in validate_serialized_space(payload))
+
+    payload = build_serialized_space(load_environment("config/environments/dev.yml"))
+    payload["instructions"]["join_specs"] = [
+        {"id": "0" * 32, "left": {}, "right": {}, "sql": []}
+    ]
+    assert any("must not contain join_specs" in error for error in validate_serialized_space(payload))
 
 
 def test_entity_matching_requires_string_and_format_assistance(tmp_path):

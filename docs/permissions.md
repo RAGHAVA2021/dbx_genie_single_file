@@ -12,7 +12,7 @@ Grant only what the bundle needs:
 - Permission to create and manage the Genie Agent in the configured parent workspace folder.
 - `CAN USE` on the selected SQL warehouse.
 - `USE CATALOG` and `USE SCHEMA` for the configured source namespace.
-- `SELECT` on only the approved tables, views, or Metric Views.
+- `SELECT` on only the one configured table/view or Metric View.
 - `EXECUTE` on only the approved Unity Catalog SQL functions, if functions are later configured.
 
 ## Agent users and editors
@@ -25,7 +25,7 @@ several principals, a duplicated principal, and any drift between the environmen
 bundle target.
 
 - Grant `CAN_RUN` to the business groups that consume the Agent. Prefer groups over named users.
-- Grant `CAN_EDIT` only to curators who review sources, examples, benchmarks, and generated SQL.
+- Grant `CAN_EDIT` only to curators who review the source, examples, benchmarks, and generated SQL.
 - Keep `CAN_MANAGE` with the deployment identity and designated owners.
 
 Unity Catalog grants, row filters, column masks, dynamic views, and curated views are the security

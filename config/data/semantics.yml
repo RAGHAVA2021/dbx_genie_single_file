@@ -1,7 +1,7 @@
 status: requires_business_approval
 metric_view_decision:
   recommendation: Use a governed Unity Catalog Metric View for reusable sales KPIs.
-  selected_approach: <metric-view-or-approved-raw-tables>
+  selected_approach: <metric-view-or-approved-raw-table>
   rationale: <business-and-technical-rationale>
   approval_status: pending
 columns:
@@ -12,8 +12,8 @@ columns:
     description: <approved-description>
     synonyms: [transaction date, sales date]
     grain: <fact-table-grain>
-    key_type: foreign
-    relationship: date_dimension.<date-key-column>
+    key_type: dimension
+    relationship: null
     allowed_filters: [date range]
     time_dimension: true
     sensitive_classification: none
@@ -26,19 +26,19 @@ columns:
     exclude: false
     approval_status: pending
     evidence: <unity-catalog-or-business-owner-evidence>
-  - business_name: Product key
+  - business_name: Product name
     table: sales_fact
-    physical_column: <product-key-column>
-    data_type: <data-type>
+    physical_column: <product-business-name-column>
+    data_type: STRING
     description: <approved-description>
-    synonyms: [product identifier]
+    synonyms: [product, item]
     grain: <fact-table-grain>
-    key_type: foreign
-    relationship: product_dimension.<product-key-column>
-    allowed_filters: []
+    key_type: dimension
+    relationship: null
+    allowed_filters: [product]
     time_dimension: false
     sensitive_classification: internal
-    example_values: ["PRODUCT-001"]
+    example_values: ["<approved-product-name-example>"]
     enable_format_assistance: false
     enable_entity_matching: false
     get_example_values: false
@@ -47,19 +47,19 @@ columns:
     exclude: false
     approval_status: pending
     evidence: <unity-catalog-or-business-owner-evidence>
-  - business_name: Store key
+  - business_name: Store name
     table: sales_fact
-    physical_column: <store-key-column>
-    data_type: <data-type>
+    physical_column: <store-business-name-column>
+    data_type: STRING
     description: <approved-description>
-    synonyms: [store identifier]
+    synonyms: [store, location]
     grain: <fact-table-grain>
-    key_type: foreign
-    relationship: store_dimension.<store-key-column>
-    allowed_filters: []
+    key_type: dimension
+    relationship: null
+    allowed_filters: [store]
     time_dimension: false
     sensitive_classification: internal
-    example_values: ["STORE-001"]
+    example_values: ["<approved-store-name-example>"]
     enable_format_assistance: false
     enable_entity_matching: false
     get_example_values: false
@@ -139,28 +139,4 @@ measures:
     unit_of_measure: currency_per_transaction
     approval_status: pending
     evidence: <business-owner-or-governed-model-evidence>
-joins:
-  - name: sales_to_product
-    left_table: sales_fact
-    left_column: <product-key-column>
-    right_table: product_dimension
-    right_column: <product-key-column>
-    relationship: many_to_one
-    approval_status: pending
-    evidence: <constraint-profile-or-business-owner-evidence>
-  - name: sales_to_store
-    left_table: sales_fact
-    left_column: <store-key-column>
-    right_table: store_dimension
-    right_column: <store-key-column>
-    relationship: many_to_one
-    approval_status: pending
-    evidence: <constraint-profile-or-business-owner-evidence>
-  - name: sales_to_date
-    left_table: sales_fact
-    left_column: <date-key-column>
-    right_table: date_dimension
-    right_column: <date-key-column>
-    relationship: many_to_one
-    approval_status: pending
-    evidence: <constraint-profile-or-business-owner-evidence>
+joins: []

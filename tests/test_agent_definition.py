@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 import yaml
 
 from sales_genie.agent_definition import build_serialized_space
@@ -12,7 +13,7 @@ def test_serialized_space_shape_and_sorting():
     assert payload["data_sources"]["tables"] == sorted(
         payload["data_sources"]["tables"], key=lambda item: item["identifier"]
     )
-    assert len(payload["data_sources"]["tables"]) == 4
+    assert len(payload["data_sources"]["tables"]) == 1
     ids = [item["id"] for item in payload["config"]["sample_questions"]]
     assert ids == sorted(ids)
     assert all(len(value) == 32 for value in ids)
@@ -21,6 +22,7 @@ def test_serialized_space_shape_and_sorting():
     assert examples == sorted(examples, key=lambda item: item["id"])
     assert all(item["question"] and item["sql"] for item in examples)
     assert "benchmarks" not in payload
+    assert "join_specs" not in payload["instructions"]
     sale_date = next(
         column
         for table in payload["data_sources"]["tables"]
@@ -29,6 +31,35 @@ def test_serialized_space_shape_and_sorting():
     )
     assert sale_date["enable_entity_matching"] is False
     assert all(table.get("description") for table in payload["data_sources"]["tables"])
+    comparison = next(
+        example
+        for example in examples
+        if example["question"] == ["Compare current-year sales with the same period last year."]
+    )["sql"][0]
+    assert "add_months(current_date(), -12)" in comparison
+    assert "AS absolute_change" in comparison
+    assert "AS percentage_change" in comparison
+
+
+def test_serialized_space_builder_rejects_joins(tmp_path: Path):
+    semantics = yaml.safe_load(Path("config/data/semantics.yml").read_text(encoding="utf-8"))
+    semantics["joins"] = [
+        {
+            "name": "self_join",
+            "left_table": "sales_fact",
+            "left_column": "parent_id",
+            "right_table": "sales_fact",
+            "right_column": "id",
+            "relationship": "many_to_one",
+        }
+    ]
+    semantics_path = tmp_path / "semantics.yml"
+    semantics_path.write_text(yaml.safe_dump(semantics), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="joins must be empty"):
+        build_serialized_space(
+            load_environment("config/environments/dev.yml"), semantics_path=semantics_path
+        )
 
 
 def test_metric_view_sources_are_serialized_separately(tmp_path: Path):
@@ -45,10 +76,7 @@ def test_metric_view_sources_are_serialized_separately(tmp_path: Path):
     assert [item["identifier"] for item in metric_views] == [
         "<dev-catalog-name>.<schema-name>.<sales-fact-table>"
     ]
-    assert all(
-        item["identifier"] != "<dev-catalog-name>.<schema-name>.<sales-fact-table>"
-        for item in payload["data_sources"]["tables"]
-    )
+    assert "tables" not in payload["data_sources"]
 
 
 def test_sql_snippets_and_agent_benchmarks_are_serialized(tmp_path: Path):

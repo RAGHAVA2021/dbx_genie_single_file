@@ -19,7 +19,12 @@ Read the applicable skill instructions and references completely before implemen
 
 ## Objective
 
-Maintain and complete this production-quality, source-controlled Databricks Genie Agent project for sales-data analysis. Preserve the implemented design unless current official Databricks documentation or the installed CLI schema requires a change.
+Maintain and complete this production-quality, source-controlled Databricks Genie Agent project for sales-data analysis. Preserve its enforced single-source design unless the user explicitly changes the requirement and current official Databricks documentation or the installed CLI schema supports that change.
+
+The Agent must resolve and serialize exactly one logical source named `sales_fact`: either one
+denormalized table/view or one governed Metric View. Product, store, date, customer, and target data
+must be columns of that object. Do not configure separate dimension/target sources or any join
+specifications.
 
 Use the current term **Genie Agent**. Mention **formerly Genie Space** only where an API, CLI command, bundle resource key, or compatibility explanation requires it.
 
@@ -34,7 +39,7 @@ Therefore:
 - Do not call a workspace API.
 - Do not create, update, or delete workspace resources.
 - Do not deploy the Genie Agent.
-- Do not invent workspace IDs, warehouse IDs, Agent IDs, table names, columns, metric formulas, joins, permissions, profiling results, or API responses.
+- Do not invent workspace IDs, warehouse IDs, Agent IDs, table names, columns, metric formulas, permissions, profiling results, or API responses.
 - Use clearly labelled placeholders.
 - Separate local validation from workspace-dependent validation.
 - Do not manually implement OAuth or token handling.
@@ -49,13 +54,13 @@ an unrelated structure. Extend it through this flow:
 
 1. Authors update environment mappings, data contracts, semantic context, instructions, examples,
    and independent evaluations.
-2. Local validation checks placeholders, approvals, source resolution, SQL safety, serialized IDs,
+2. Local validation checks placeholders, approvals, exactly-one-source resolution, absence of joins, SQL safety, serialized IDs,
    sensitive-data rules, and dev/prod isolation without authenticating.
 3. The deterministic builder creates
    `generated/<target>/sales_genie.geniespace.json` using serialized-space version 2.
 4. The native DAB resource in `resources/sales_genie.genie_space.yml`, included by
    `databricks.yml`, deploys that artifact with `bundle.engine: direct`.
-5. A development workspace run verifies sources, SQL, permissions, conversations, generated SQL,
+5. A development workspace run verifies the source, SQL, permissions, conversations, generated SQL,
    results, and the independent evaluation suite.
 6. Production promotion requires approved definitions and examples, passed local and workspace
    gates, a protected-environment approval, and a pre-update export.
@@ -73,18 +78,18 @@ Before designing a deployable Agent, explicitly record:
 1. Target audience and expected data/SQL fluency.
 2. The Agent's narrowly defined business purpose.
 3. At least 3–5 real business questions.
-4. Known data sources or clearly labelled logical placeholders.
+4. The known single data source or a clearly labelled logical placeholder.
 5. Business terminology, KPI definitions, fiscal/date rules, default filters, currency rules, and sensitive-data restrictions that still require confirmation.
 6. Whether evaluation is intended for Chat mode, Agent mode, or both.
 
 The supplied purpose and sample questions below satisfy the local scaffolding requirement, but physical mappings and business definitions remain unresolved until a workspace and domain owners are available.
 
-Before using raw fact/dimension tables for reusable KPIs, perform a **Metric View decision gate**:
+Before using the single raw denormalized table for reusable KPIs, perform a **Metric View decision gate**:
 
 - If questions centre on governed reusable measures such as revenue, margin, return rate, conversion, or targets, recommend an appropriate Unity Catalog Metric View first.
-- Explain that Metric Views centralise dimensions, measures, joins, and aggregation semantics.
+- Explain that a Metric View centralises dimensions, measures, and aggregation semantics.
 - Do not create a Metric View without explicit approval and the applicable Metric View skill.
-- If raw tables are retained, document why raw-detail access is required or why the Metric View recommendation was declined.
+- If the raw table is retained, document why raw-detail access is required or why the Metric View recommendation was declined.
 
 ## Business purpose
 
@@ -100,24 +105,23 @@ The Genie Agent must help authorised business users analyse sales data using nat
 - Which products have the highest number of transactions?
 - Compare actual sales with target sales, if approved target data is available.
 
-Do not assume these measures or columns exist. Treat every physical object, relationship, formula, sign convention, grain, date rule, and currency rule as an approval-required placeholder.
+Do not assume these measures or columns exist. Treat every physical object, formula, sign convention, grain, date rule, and currency rule as an approval-required placeholder.
 
 ## Source selection and readiness
 
 Follow current Databricks guidance:
 
-- Start small and focused; aim for five or fewer tables, views, or Metric Views initially.
-- Include only sources and columns needed for the approved questions.
-- Check the current official source limit rather than relying on a hard-coded historical value.
-- Prefer well-documented, simplified, pre-joined views or Metric Views when they reduce ambiguity and fan-out risk.
-- Do not attach a Metric View and its underlying raw tables unless users genuinely need both governed aggregation and raw detail.
+- Configure exactly one table, view, or Metric View.
+- Include only columns needed for the approved questions.
+- Prefer a well-documented, denormalized table/view or one Metric View to reduce ambiguity and fan-out risk.
+- Never attach a Metric View together with its underlying raw table.
 - Hide or exclude irrelevant ETL metadata, hashes, raw payloads, embeddings, secrets, tokens, sensitive free text, and other distracting fields.
 
 Define a future readiness assessment for each core business question with High/Medium/Low confidence across:
 
 - Semantic coverage
 - Data quality and freshness
-- Modelability and join evidence
+- Modelability and grain evidence
 - Genie context readiness
 
 Do not present Low-confidence questions as supported.
@@ -195,8 +199,8 @@ Each environment must provide placeholders for:
 - `warehouse_id`
 - `catalog_name`
 - `schema_name`
-- Required sales fact, product, store, and date sources
-- Optional customer and sales-target sources
+- Exactly one required `sales_fact` table/view or Metric View containing sales, product, store, and date columns
+- Optional customer and sales-target columns in that same object
 - Genie Agent display name and description
 - Parent workspace path
 - Environment-specific Agent ID or bundle resource identity after deployment
@@ -208,15 +212,15 @@ Each environment must provide placeholders for:
 Use placeholders such as `<dev-workspace-url>`, `<prod-workspace-url>`, and `<dev-warehouse-id>`. Do not hard-code secrets, tokens, actual URLs, email addresses, or object IDs.
 
 Store dev and prod Agent IDs, bundle target state, generated artifacts, and local state separately.
-Promotion changes only the catalog component of source identifiers; schema names, object names, and
-source types remain the same. Workspace hosts, warehouses, profiles, and identities may be shared
+Promotion changes only the catalog component of the source identifier; its schema name, object name, and
+source type remain the same. Workspace hosts, warehouses, profiles, and identities may be shared
 when that is the explicitly approved topology.
 
 ## Structured data and semantic configuration
 
-`config/data/tables.yml` must define the logical source contract, declare each source's `source_type`
-as `table` or `metric_view`, and construct fully qualified Unity Catalog identifiers from environment
-values. The Genie project may attach an existing Metric View but must not create one without the
+`config/data/tables.yml` must define exactly one logical source named `sales_fact`, declare its
+`source_type` as `table` or `metric_view`, and construct one fully qualified Unity Catalog identifier
+from environment values. The Genie project may attach an existing Metric View but must not create one without the
 separate Metric View workflow and explicit approval.
 
 `config/data/semantics.yml` must support:
@@ -226,8 +230,8 @@ separate Metric View workflow and explicit approval.
 - Precise descriptions
 - Synonyms
 - Grain
-- Primary/business and foreign keys
-- Join relationships and cardinality
+- Primary/business keys and any identifiers stored within the denormalized object
+- Single-source grain and key behavior
 - Allowed filters
 - Time dimensions
 - Measures and aggregation rules
@@ -244,25 +248,24 @@ Prefer structured context in this order:
 
 1. Agent description
 2. Metric View semantics, when applicable
-3. Focused source selection
+3. Selection of the one approved source
 4. Table and column descriptions
 5. Synonyms and display names
 6. Selective format assistance and entity matching
 7. Hidden/excluded fields
-8. Verified join specifications
-9. SQL expressions for measures, filters, and fields
-10. Representative example SQL
-11. Approved Unity Catalog SQL functions for suitable complex/non-additive logic
-12. Minimal global text instructions
-13. Sample questions and independent benchmarks
+8. SQL expressions for measures, filters, and fields
+9. Representative example SQL
+10. Approved Unity Catalog SQL functions for suitable complex/non-additive logic
+11. Minimal global text instructions
+12. Sample questions and independent benchmarks
 
 ## Prompt matching and sensitive data
 
 - Enable entity matching only for stable string dimensions users are likely to name, such as product category, status, department, state, or country codes.
 - Do not enable it broadly on IDs, hashes, free text, latitude/longitude, or numeric measures.
 - Require format assistance when entity matching requires it.
-- Do not enable entity matching on tables protected by row filters or column masks.
-- Disable it for views that reference protected tables and for dynamic views unless current official documentation explicitly establishes a safe supported pattern.
+- Do not enable entity matching on the configured object when it is protected by row filters or column masks.
+- Disable it when the configured source is a view over protected tables or a dynamic view unless current official documentation explicitly establishes a safe supported pattern.
 - Treat Unity Catalog grants, row filters, masks, and curated views as the security boundary; text instructions are not access control.
 
 ## SQL expressions and example SQL
@@ -276,7 +279,7 @@ Create `config/examples/sql_expressions.yml` for reusable:
 - Usage instructions
 - Approval state
 
-Use SQL expressions for business concepts that can be encoded structurally. Do not bury metric formulas, filters, joins, or table-selection logic in general text instructions.
+Use SQL expressions for business concepts that can be encoded structurally. Do not bury metric formulas, filters, or column-selection logic in general text instructions.
 
 Create `config/examples/sql_examples.yml` containing representative, read-only Databricks SQL query shapes. Use the most typical natural-language phrasing as each example title/question and include concise usage guidance.
 
@@ -286,7 +289,7 @@ Requirements:
 - Never include mutating SQL.
 - Fully qualify every column reference with its table or alias, including inside subqueries.
 - Do not use `SELECT *` in examples or benchmarks.
-- Avoid fan-out and respect source grain.
+- Respect the configured source grain and avoid duplicate counting.
 - Apply explicit date filters.
 - Use safe division and explicit null handling where applicable.
 - Do not duplicate formulas already governed by a Metric View.
@@ -335,19 +338,19 @@ Generate a deterministic `serialized_space` version 2 definition using the curre
 Support, where confirmed:
 
 - Sample questions
-- Tables and Metric Views
+- Exactly one table/view or one Metric View
 - Table/column descriptions
 - Column synonyms
 - Format assistance and entity matching
 - Hidden columns
-- Join specifications
+- Rejection of all join specifications
 - SQL expressions/snippets
 - Example question SQL with usage guidance
 - Approved SQL functions
 - Text instructions
 - Benchmarks, if intentionally promoted into the Agent
 
-Enforce current schema rules, including required lowercase 32-character hexadecimal IDs, array field shapes, uniqueness, deterministic ordering, maximum sizes, and source limits. Do not assume that historical limits remain current; verify them.
+Enforce current schema rules, including exactly one source, no `join_specs`, required lowercase 32-character hexadecimal IDs, array field shapes, uniqueness, deterministic ordering, and maximum sizes. The platform may support more sources, but this repository deliberately does not.
 
 ## Bundle and deployment design
 
@@ -359,7 +362,7 @@ Therefore:
 - If native `genie_spaces` is supported, use it as the primary source-controlled deployment mechanism.
 - Configure `bundle.engine: direct`.
 - Prefer `file_path` pointing to a generated `.geniespace.json` file instead of embedding a large escaped JSON string when practical.
-- Parameterise warehouse, source mappings, parent path, names, and permissions per dev/prod target.
+- Parameterise warehouse, the single-source mapping, parent path, names, and permissions per dev/prod target.
 - Declare Agent access on the resource's own `permissions` field, which is the per-resource form
   Databricks documents for bundle resources. Do not move it to the top-level `permissions` mapping:
   that mapping's supported resource types are not enumerated, the documentation warns that resource
@@ -441,7 +444,7 @@ Each item must include:
 - ID
 - Category
 - Natural-language question
-- Required sources
+- Whether the single `sales_fact` source is required (or no source for unsupported/refusal cases)
 - Expected business interpretation
 - Expected SQL characteristics
 - Expected result characteristics
@@ -468,15 +471,15 @@ Create automated tests for:
 - YAML/JSON syntax
 - Required fields
 - Placeholder detection
-- Environment-specific source resolution through each source's `fqn_template`
+- Environment-specific resolution of the single source through its `fqn_template`
 - Rejection of any environment source absent from the logical source contract
-- Duplicate sources
+- Rejection of a logical source contract containing anything other than exactly one source
 - Dev/prod isolation
-- Catalog-only promotion: source types, schemas, and object names match while catalogs differ
+- Catalog-only promotion: the source type, schema, and object name match while catalogs differ
 - Import remapping of complete identifiers and embedded SQL, with rejection of source-shape drift
 - Agent ID separation
 - Warehouse configuration
-- Join completeness and valid cardinality
+- Rejection of any join specification in the single-source design
 - Measures missing aggregation or approval
 - SQL expression validity
 - Unsafe SQL and `SELECT *`
@@ -499,10 +502,10 @@ Document but do not execute checks for:
 - Authentication and selected profile
 - CLI and bundle schema version
 - Warehouse existence, type/state, and `CAN USE`
-- Catalog, schema, table, view, and Metric View existence
+- Catalog, schema, and configured table/view/Metric View existence
 - Required columns and types
 - Unity Catalog comments and constraints
-- Data grain, freshness, quality, key uniqueness, and join fan-out
+- Data grain, freshness, quality, key uniqueness, and duplicate-row behavior
 - Approved metric definitions and Metric View semantics
 - Grants, row filters, masks, dynamic views, and sensitive columns
 - Entity matching eligibility
@@ -511,7 +514,7 @@ Document but do not execute checks for:
 - Agent create/update and permissions
 - Chat conversation execution and follow-ups
 - Agent-mode behavior where available
-- Generated SQL, sources, results, timeouts, and errors
+- Generated SQL, cited source, results, timeouts, and errors
 - Benchmark and business-user acceptance
 - Backup and rollback restoration
 
@@ -544,7 +547,7 @@ Document least privilege for:
 - Runtime or querying identity, depending on current execution semantics
 - SQL warehouse
 - Catalog and schema usage
-- `SELECT` on approved tables/views only
+- `SELECT` on only the configured table/view or Metric View
 - `EXECUTE` on approved Unity Catalog functions
 - End-user `CAN RUN` or current equivalent
 

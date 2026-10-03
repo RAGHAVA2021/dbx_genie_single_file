@@ -5,6 +5,12 @@ repository. Hidden system/developer instructions and raw tool logs are excluded.
 historical and intentionally preserve decisions that were later superseded; the latest sections and
 the root `README.md` describe the current implementation.
 
+> **Current-design notice:** Historical sections below mention four-to-six sources, dimensions,
+> joins, and earlier deployment choices. Those statements are not current requirements. The present
+> design permits exactly one logical `sales_fact` source—one denormalized table/view or one governed
+> Metric View—and prohibits Genie join specifications. The root `README.md`, `prompt.md`, and Section
+> 16 of this transcript are authoritative for the current design.
+
 ## 1. Initial project request
 
 ### User
@@ -346,3 +352,27 @@ Audited all Markdown files and aligned the living documentation with typed sourc
 promotion contract, DAB Agent-ID resolution, safe import behavior, Metric View boundaries, workspace
 smoke-test terminology, and the approved shared-infrastructure option. This transcript was extended
 without rewriting its historical sections.
+
+## 16. Single-source redesign and validation hardening
+
+### User
+
+Requested that the copied project use a single source before changing its Git remote, then requested
+a bug review, fixes, and complete documentation alignment.
+
+### Assistant
+
+Converted the current design to exactly one logical source named `sales_fact`. The configured object
+is either one denormalized table/view or one governed Metric View containing the product, store, date,
+customer, target, and measure columns needed by supported questions. Removed separate dimension and
+target source mappings, removed SQL joins, and prohibited authored or serialized join specifications.
+
+Hardened validation so the source contract and serialized payload require exactly one source,
+unresolved `${...}` template variables fail resolution, and `join_specs` are rejected. Corrected the
+aligned current/prior-year SQL example, metadata examples, evaluation wording, tests, and all living
+documentation. The Git remote now points to `RAGHAVA2021/dbx_genie_single_file`.
+
+Local verification completed with 43 passing tests, successful Ruff linting, syntax parsing,
+development and production configuration validation, environment comparison, and generated dev/prod
+payloads containing one source and zero join specifications. No Databricks workspace operation or
+deployment was performed.

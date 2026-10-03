@@ -6,6 +6,7 @@ from typing import Any, Iterable
 
 from .config import (
     MAX_DATA_SOURCES,
+    UNRESOLVED_TEMPLATE_RE,
     EnvironmentConfig,
     contains_placeholder,
     load_table_contract,
@@ -133,7 +134,10 @@ def validate_semantics(path: str | Path, *, deployment: bool = False) -> list[st
                 errors.append(f"column {index} cannot use entity matching on a protected source")
         if deployment and column.get("approval_status") != "approved":
             errors.append(f"column {index} is not approved")
-    for index, join in enumerate(raw.get("joins", [])):
+    joins = raw.get("joins", [])
+    if joins:
+        errors.append("joins must be empty for the single-source design")
+    for index, join in enumerate(joins):
         required = {
             "name", "left_table", "left_column", "right_table", "right_column",
             "relationship", "approval_status", "evidence",
@@ -301,12 +305,16 @@ def validate_serialized_space(payload: dict[str, Any]) -> list[str]:
     data_sources = payload.get("data_sources", {})
     tables = data_sources.get("tables", [])
     metric_views = data_sources.get("metric_views", [])
-    if len(tables) + len(metric_views) > MAX_DATA_SOURCES:
-        errors.append(f"serialized_space exceeds the {MAX_DATA_SOURCES}-source limit")
+    source_count = len(tables) + len(metric_views)
+    if source_count != MAX_DATA_SOURCES:
+        errors.append(f"serialized_space must contain exactly {MAX_DATA_SOURCES} data source")
     for collection_name, sources in (("tables", tables), ("metric_views", metric_views)):
         if sources != sorted(sources, key=lambda item: item.get("identifier", "")):
             errors.append(f"data_sources.{collection_name} must be sorted by identifier")
         for source in sources:
+            identifier = str(source.get("identifier", ""))
+            if not FQN_RE.fullmatch(identifier) or UNRESOLVED_TEMPLATE_RE.search(identifier):
+                errors.append(f"invalid fully qualified source name: {identifier}")
             columns = source.get("column_configs", [])
             if columns != sorted(columns, key=lambda item: item.get("column_name", "")):
                 errors.append("column_configs must be sorted by column_name")
@@ -321,6 +329,8 @@ def validate_serialized_space(payload: dict[str, Any]) -> list[str]:
         if ids != sorted(ids):
             errors.append("sample questions and benchmark arrays must be sorted by id")
     instructions = payload.get("instructions", {})
+    if instructions.get("join_specs"):
+        errors.append("single-source serialized_space must not contain join_specs")
     if len(instructions.get("text_instructions", [])) > 1:
         errors.append("serialized_space supports at most one text instruction item")
     instruction_count = len(instructions.get("example_question_sqls", []))

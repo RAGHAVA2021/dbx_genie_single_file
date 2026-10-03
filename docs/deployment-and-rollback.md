@@ -25,13 +25,13 @@ Deployments are manual and infrequent. There is no recurring schedule.
 ## Rollback
 
 1. Identify the last known-good Git revision and its production export.
-2. Review the diff, warehouse, source mappings, parent path, permissions, and Agent ID.
+2. Review the diff, warehouse, single-source mapping, parent path, permissions, and Agent ID.
 3. Regenerate the production `.geniespace.json` from that revision.
 4. Run local tests and `databricks bundle validate --strict --target prod`.
 5. Redeploy the previous bundle revision through the protected production environment.
 6. Repeat smoke tests and business evaluation. Do not use `bundle destroy` as rollback.
 
 For emergency cloning from an export, use `import-agent --dry-run` first. Import requires the same
-source type, schema, and object name as the target, remaps complete identifiers and embedded SQL to
-the target catalog, and rejects unknown or missing sources. It creates a new Agent; it does not
+source type, schema, and object name as the target, remaps the complete identifier and embedded SQL to
+the target catalog, and rejects a missing, additional, or mismatched source. It creates a new Agent; it does not
 silently overwrite the bundle-managed production Agent.

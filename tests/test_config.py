@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from sales_genie.config import (
     contains_placeholder,
     load_environment,
@@ -19,9 +21,9 @@ def test_fully_qualified_names():
     assert cfg.table_fqns()["sales_fact"] == "<dev-catalog-name>.<schema-name>.<sales-fact-table>"
 
 
-def test_optional_tables_are_omitted():
+def test_only_single_sales_source_is_resolved():
     cfg = load_environment("config/environments/dev.yml")
-    assert "customer_dimension" not in cfg.table_fqns()
+    assert tuple(cfg.table_fqns()) == ("sales_fact",)
 
 
 def test_placeholders_are_detected():
@@ -30,6 +32,7 @@ def test_placeholders_are_detected():
 
 def test_source_list_comes_from_the_logical_contract():
     contract = load_yaml("config/data/tables.yml")["tables"]
+    assert tuple(contract) == ("sales_fact",)
     assert table_keys() == tuple(contract)
     assert required_table_keys() == tuple(k for k, v in contract.items() if v.get("required"))
 
@@ -47,3 +50,17 @@ def test_fqn_template_drives_source_resolution(tmp_path):
     assert cfg.table_fqns(contract) == {
         "sales_fact": "<dev-catalog-name>.curated_<schema-name>.<sales-fact-table>"
     }
+
+
+def test_unresolved_fqn_template_variable_is_rejected(tmp_path):
+    contract = tmp_path / "tables.yml"
+    contract.write_text(
+        'tables:\n'
+        '  sales_fact:\n'
+        '    required: true\n'
+        '    fqn_template: "${catalog_name}.${schema_name}.${misspelled_table}"\n',
+        encoding="utf-8",
+    )
+    cfg = load_environment("config/environments/dev.yml")
+    with pytest.raises(ValueError, match="unresolved template variable"):
+        cfg.table_fqns(contract)

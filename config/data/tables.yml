@@ -3,29 +3,6 @@ tables:
     source_type: table
     required: true
     fqn_template: "${catalog_name}.${schema_name}.${sales_fact_table}"
-    purpose: Transactional sales fact at a business-approved grain.
-  product_dimension:
-    source_type: table
-    required: true
-    fqn_template: "${catalog_name}.${schema_name}.${product_dimension_table}"
-    purpose: Approved product attributes.
-  store_dimension:
-    source_type: table
-    required: true
-    fqn_template: "${catalog_name}.${schema_name}.${store_dimension_table}"
-    purpose: Approved store attributes.
-  date_dimension:
-    source_type: table
-    required: true
-    fqn_template: "${catalog_name}.${schema_name}.${date_dimension_table}"
-    purpose: Approved calendar and, if confirmed, fiscal attributes.
-  customer_dimension:
-    source_type: table
-    required: false
-    fqn_template: "${catalog_name}.${schema_name}.${customer_dimension_table}"
-    purpose: Optional approved, non-sensitive customer attributes.
-  sales_target:
-    source_type: table
-    required: false
-    fqn_template: "${catalog_name}.${schema_name}.${sales_target_table}"
-    purpose: Optional sales targets at a business-approved grain.
+    purpose: >-
+      Single denormalized sales source containing approved measures and the product,
+      store, date, customer, and target attributes needed by supported questions.
