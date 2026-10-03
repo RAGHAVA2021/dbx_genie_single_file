@@ -1,0 +1,22 @@
+environment: dev
+workspace_host: <dev-workspace-url>
+cli_profile: <dev-cli-profile>
+warehouse_id: <dev-warehouse-id>
+catalog_name: <dev-catalog-name>
+schema_name: <schema-name>
+tables:
+  sales_fact: <sales-fact-table>
+  product_dimension: <product-dimension-table>
+  store_dimension: <store-dimension-table>
+  date_dimension: <date-dimension-table>
+  customer_dimension: null
+  sales_target: null
+agent:
+  display_name: <dev-genie-agent-display-name>
+  description: <dev-genie-agent-description>
+  parent_path: <dev-workspace-parent-path>
+  agent_id: null
+deployment_identity: <dev-service-principal>
+authorised_principals:
+  - level: CAN_RUN
+    group_name: <dev-authorised-group>

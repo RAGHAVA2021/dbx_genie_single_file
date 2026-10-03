@@ -1,0 +1,9 @@
+description: Questions shown to users as approved starting prompts in the Genie Agent UI.
+approval_status: pending
+questions:
+  - What were total sales yesterday?
+  - Show monthly sales trends.
+  - Compare current-year sales with the prior year.
+  - What are the top-selling products?
+  - Which stores have declining sales?
+

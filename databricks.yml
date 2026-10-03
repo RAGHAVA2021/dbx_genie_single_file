@@ -1,0 +1,50 @@
+bundle:
+  name: sales-genie-agent
+  engine: direct
+
+include:
+  - resources/*.yml
+
+variables:
+  warehouse_id:
+    description: SQL warehouse used by the Genie Agent.
+  agent_title:
+    description: Environment-specific Genie Agent title.
+  agent_description:
+    description: Focused purpose used for discovery and routing.
+  parent_path:
+    description: Existing workspace folder that contains the Agent.
+  agent_permissions:
+    type: complex
+    description: Principals granted access to the Agent, in DAB resource-permission form.
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      host: <dev-workspace-url>
+      root_path: ${var.parent_path}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      warehouse_id: <dev-warehouse-id>
+      agent_title: <dev-genie-agent-display-name>
+      agent_description: <dev-genie-agent-description>
+      parent_path: <dev-workspace-parent-path>
+      agent_permissions:
+        - level: CAN_RUN
+          group_name: <dev-authorised-group>
+
+  prod:
+    mode: production
+    workspace:
+      host: <prod-workspace-url>
+      root_path: ${var.parent_path}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      warehouse_id: <prod-warehouse-id>
+      agent_title: <prod-genie-agent-display-name>
+      agent_description: <prod-genie-agent-description>
+      parent_path: <prod-workspace-parent-path>
+      agent_permissions:
+        - level: CAN_RUN
+          group_name: <prod-authorised-group>
+

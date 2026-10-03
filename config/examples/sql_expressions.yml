@@ -1,0 +1,8 @@
+description: >-
+  Approved reusable SQL measures, filters, and dimensions for the Genie knowledge store.
+  Keep arrays empty until the Metric View decision and physical mappings are approved.
+status: requires_business_and_technical_approval
+measures: []
+filters: []
+expressions: []
+

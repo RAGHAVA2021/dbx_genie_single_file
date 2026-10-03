@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sales-genie-agent"
+version = "0.1.0"
+description = "Source-controlled Databricks Genie Agent configuration and deployment tooling"
+requires-python = ">=3.11"
+dependencies = ["databricks-sdk>=0.105", "PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.9"]
+
+[project.scripts]
+sales-genie = "sales_genie.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sales_genie"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# Pinned explicitly: Ruff's default rule set widens between releases, so relying on it
+# makes `ruff check .` fail on a fresh install without any code change.
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+

@@ -1,0 +1,166 @@
+status: requires_business_approval
+metric_view_decision:
+  recommendation: Use a governed Unity Catalog Metric View for reusable sales KPIs.
+  selected_approach: <metric-view-or-approved-raw-tables>
+  rationale: <business-and-technical-rationale>
+  approval_status: pending
+columns:
+  - business_name: Sale date
+    table: sales_fact
+    physical_column: <sale-date-column>
+    data_type: DATE
+    description: <approved-description>
+    synonyms: [transaction date, sales date]
+    grain: <fact-table-grain>
+    key_type: foreign
+    relationship: date_dimension.<date-key-column>
+    allowed_filters: [date range]
+    time_dimension: true
+    sensitive_classification: none
+    example_values: ["2026-01-15"]
+    enable_format_assistance: false
+    enable_entity_matching: false
+    get_example_values: false
+    build_value_dictionary: false
+    protected_source: false
+    exclude: false
+    approval_status: pending
+    evidence: <unity-catalog-or-business-owner-evidence>
+  - business_name: Product key
+    table: sales_fact
+    physical_column: <product-key-column>
+    data_type: <data-type>
+    description: <approved-description>
+    synonyms: [product identifier]
+    grain: <fact-table-grain>
+    key_type: foreign
+    relationship: product_dimension.<product-key-column>
+    allowed_filters: []
+    time_dimension: false
+    sensitive_classification: internal
+    example_values: ["PRODUCT-001"]
+    enable_format_assistance: false
+    enable_entity_matching: false
+    get_example_values: false
+    build_value_dictionary: false
+    protected_source: false
+    exclude: false
+    approval_status: pending
+    evidence: <unity-catalog-or-business-owner-evidence>
+  - business_name: Store key
+    table: sales_fact
+    physical_column: <store-key-column>
+    data_type: <data-type>
+    description: <approved-description>
+    synonyms: [store identifier]
+    grain: <fact-table-grain>
+    key_type: foreign
+    relationship: store_dimension.<store-key-column>
+    allowed_filters: []
+    time_dimension: false
+    sensitive_classification: internal
+    example_values: ["STORE-001"]
+    enable_format_assistance: false
+    enable_entity_matching: false
+    get_example_values: false
+    build_value_dictionary: false
+    protected_source: false
+    exclude: false
+    approval_status: pending
+    evidence: <unity-catalog-or-business-owner-evidence>
+measures:
+  - business_name: Gross sales
+    physical_column: <gross-sales-column>
+    data_type: DECIMAL
+    description: Example only; business owner must approve the definition.
+    synonyms: [gross revenue]
+    aggregation_rule: SUM
+    currency: <currency-or-multi-currency-rule>
+    unit_of_measure: currency
+    approval_status: pending
+    evidence: <business-owner-or-governed-model-evidence>
+  - business_name: Discount amount
+    physical_column: <discount-amount-column>
+    data_type: DECIMAL
+    description: Example only; confirm sign convention and scope.
+    synonyms: [discounts]
+    aggregation_rule: SUM
+    currency: <currency-or-multi-currency-rule>
+    unit_of_measure: currency
+    approval_status: pending
+    evidence: <business-owner-or-governed-model-evidence>
+  - business_name: Return amount
+    physical_column: <return-amount-column>
+    data_type: DECIMAL
+    description: Example only; confirm sign convention and return recognition date.
+    synonyms: [returns]
+    aggregation_rule: SUM
+    currency: <currency-or-multi-currency-rule>
+    unit_of_measure: currency
+    approval_status: pending
+    evidence: <business-owner-or-governed-model-evidence>
+  - business_name: Net sales
+    physical_column: <net-sales-column-or-expression>
+    data_type: DECIMAL
+    description: Example only; formula must be approved and preferably governed upstream.
+    synonyms: [sales, revenue]
+    aggregation_rule: SUM
+    currency: <currency-or-multi-currency-rule>
+    unit_of_measure: currency
+    approval_status: pending
+    evidence: <business-owner-or-governed-model-evidence>
+  - business_name: Sales quantity
+    physical_column: <sales-quantity-column>
+    data_type: DECIMAL
+    description: Example only; confirm treatment of returns.
+    synonyms: [units sold]
+    aggregation_rule: SUM
+    currency: null
+    unit_of_measure: <unit>
+    approval_status: pending
+    evidence: <business-owner-or-governed-model-evidence>
+  - business_name: Transaction count
+    physical_column: <transaction-key-column>
+    data_type: <data-type>
+    description: Example only; confirm whether distinct transaction keys are required.
+    synonyms: [number of transactions]
+    aggregation_rule: COUNT_DISTINCT
+    currency: null
+    unit_of_measure: transactions
+    approval_status: pending
+    evidence: <business-owner-or-governed-model-evidence>
+  - business_name: Average transaction value
+    physical_column: <approved-expression-or-metric-view-measure>
+    data_type: DECIMAL
+    description: Example only; numerator and denominator require approval.
+    synonyms: [ATV, average basket value]
+    aggregation_rule: APPROVED_RATIO
+    currency: <currency-or-multi-currency-rule>
+    unit_of_measure: currency_per_transaction
+    approval_status: pending
+    evidence: <business-owner-or-governed-model-evidence>
+joins:
+  - name: sales_to_product
+    left_table: sales_fact
+    left_column: <product-key-column>
+    right_table: product_dimension
+    right_column: <product-key-column>
+    relationship: many_to_one
+    approval_status: pending
+    evidence: <constraint-profile-or-business-owner-evidence>
+  - name: sales_to_store
+    left_table: sales_fact
+    left_column: <store-key-column>
+    right_table: store_dimension
+    right_column: <store-key-column>
+    relationship: many_to_one
+    approval_status: pending
+    evidence: <constraint-profile-or-business-owner-evidence>
+  - name: sales_to_date
+    left_table: sales_fact
+    left_column: <date-key-column>
+    right_table: date_dimension
+    right_column: <date-key-column>
+    relationship: many_to_one
+    approval_status: pending
+    evidence: <constraint-profile-or-business-owner-evidence>

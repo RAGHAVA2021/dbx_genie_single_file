@@ -1,0 +1,6 @@
+description: >-
+  Optional approved Unity Catalog SQL functions. The current serialized-space reference does
+  not publish a stable sql_functions field shape, so non-empty entries are intentionally not
+  emitted until the live API schema is confirmed before deployment.
+status: not_configured
+functions: []

@@ -1,0 +1,92 @@
+status: requires_business_and_technical_approval
+description: >-
+  Read-only Databricks SQL examples used to teach Genie representative query shapes.
+  Replace every angle-bracket placeholder and test each query in the target workspace
+  before deployment. These examples do not contain expected numeric answers.
+
+examples:
+  - name: total_sales_yesterday
+    question: What were total sales yesterday?
+    approval_status: pending
+    usage_guidance: Use for an explicitly bounded single-day sales aggregation.
+    sql: |
+      SELECT
+        SUM(sales_fact.`<approved-sales-amount-column>`) AS total_sales
+      FROM ${sales_fact} AS sales_fact
+      WHERE sales_fact.`<sale-date-column>` = date_sub(current_date(), 1)
+
+  - name: monthly_sales_trend
+    question: Show monthly sales trends for the last 12 complete months.
+    approval_status: pending
+    usage_guidance: Use for complete-month time-series analysis with an explicit range.
+    sql: |
+      SELECT
+        date_trunc('MONTH', sales_fact.`<sale-date-column>`) AS sales_month,
+        SUM(sales_fact.`<approved-sales-amount-column>`) AS total_sales
+      FROM ${sales_fact} AS sales_fact
+      WHERE sales_fact.`<sale-date-column>` >= add_months(date_trunc('MONTH', current_date()), -12)
+        AND sales_fact.`<sale-date-column>` < date_trunc('MONTH', current_date())
+      GROUP BY date_trunc('MONTH', sales_fact.`<sale-date-column>`)
+      ORDER BY sales_month
+
+  - name: top_selling_products
+    question: What are the top-selling products this month?
+    approval_status: pending
+    usage_guidance: Clarify whether top-selling means amount, quantity, or transactions before use.
+    sql: |
+      SELECT
+        product_dimension.`<product-business-name-column>` AS product_name,
+        SUM(sales_fact.`<approved-sales-amount-column>`) AS total_sales
+      FROM ${sales_fact} AS sales_fact
+      JOIN ${product_dimension} AS product_dimension
+        ON sales_fact.`<product-key-column>` = product_dimension.`<product-key-column>`
+      WHERE sales_fact.`<sale-date-column>` >= date_trunc('MONTH', current_date())
+        AND sales_fact.`<sale-date-column>` < add_months(date_trunc('MONTH', current_date()), 1)
+      GROUP BY product_dimension.`<product-business-name-column>`
+      ORDER BY total_sales DESC
+      LIMIT 10
+
+  - name: current_year_vs_prior_year
+    question: Compare current-year sales with the same period last year.
+    approval_status: pending
+    usage_guidance: Use aligned year-to-date periods and the approved sales measure.
+    sql: |
+      WITH period_sales AS (
+        SELECT
+          CASE
+            WHEN sales_fact.`<sale-date-column>` >= date_trunc('YEAR', current_date())
+              THEN 'current_year'
+            ELSE 'prior_year'
+          END AS comparison_period,
+          SUM(sales_fact.`<approved-sales-amount-column>`) AS total_sales
+        FROM ${sales_fact} AS sales_fact
+        WHERE sales_fact.`<sale-date-column>` >= add_months(date_trunc('YEAR', current_date()), -12)
+          AND sales_fact.`<sale-date-column>` <= current_date()
+        GROUP BY
+          CASE
+            WHEN sales_fact.`<sale-date-column>` >= date_trunc('YEAR', current_date())
+              THEN 'current_year'
+            ELSE 'prior_year'
+          END
+      )
+      SELECT
+        period_sales.comparison_period,
+        period_sales.total_sales
+      FROM period_sales
+      ORDER BY period_sales.comparison_period
+
+  - name: sales_by_store_last_complete_month
+    question: Show sales by store for the last complete month.
+    approval_status: pending
+    usage_guidance: Use for a bounded dimensional breakdown after the sales measure is approved.
+    sql: |
+      SELECT
+        store_dimension.`<store-business-name-column>` AS store_name,
+        SUM(sales_fact.`<approved-sales-amount-column>`) AS total_sales
+      FROM ${sales_fact} AS sales_fact
+      JOIN ${store_dimension} AS store_dimension
+        ON sales_fact.`<store-key-column>` = store_dimension.`<store-key-column>`
+      WHERE sales_fact.`<sale-date-column>` >= add_months(date_trunc('MONTH', current_date()), -1)
+        AND sales_fact.`<sale-date-column>` < date_trunc('MONTH', current_date())
+      GROUP BY store_dimension.`<store-business-name-column>`
+      ORDER BY total_sales DESC, store_name

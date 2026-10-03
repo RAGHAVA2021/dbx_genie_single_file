@@ -1,0 +1,9 @@
+resources:
+  genie_spaces:
+    sales_genie:
+      title: ${var.agent_title}
+      description: ${var.agent_description}
+      warehouse_id: ${var.warehouse_id}
+      parent_path: ${var.parent_path}
+      file_path: ../generated/${bundle.target}/sales_genie.geniespace.json
+      permissions: ${var.agent_permissions}

@@ -1,0 +1,22 @@
+environment: prod
+workspace_host: <prod-workspace-url>
+cli_profile: <prod-cli-profile>
+warehouse_id: <prod-warehouse-id>
+catalog_name: <prod-catalog-name>
+schema_name: <schema-name>
+tables:
+  sales_fact: <sales-fact-table>
+  product_dimension: <product-dimension-table>
+  store_dimension: <store-dimension-table>
+  date_dimension: <date-dimension-table>
+  customer_dimension: null
+  sales_target: null
+agent:
+  display_name: <prod-genie-agent-display-name>
+  description: <prod-genie-agent-description>
+  parent_path: <prod-workspace-parent-path>
+  agent_id: null
+deployment_identity: <prod-service-principal>
+authorised_principals:
+  - level: CAN_RUN
+    group_name: <prod-authorised-group>
